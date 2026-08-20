@@ -15,7 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS 스타일링 (스크린샷 디자인 재현)
+# Custom CSS 스타일링
 st.markdown("""
 <style>
     .main-header {
@@ -50,7 +50,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Session State (상태 변수) 초기화 (버그 해결의 핵심)
+# 2. Session State (상태 변수) 초기화
 # ---------------------------------------------------------
 if "u_val" not in st.session_state:
     st.session_state["u_val"] = 1.80  # 쿠로시오 기본 유속 u
@@ -112,7 +112,7 @@ def calculate_physics_efficiency(net_speed, plastic_density):
     return angles, np.array(eff_list), angles[best_idx], eff_list[best_idx]
 
 # ---------------------------------------------------------
-# 5. 상단 탭 구성 (기존 사이트 메뉴 100% 유지)
+# 5. 상단 탭 구성
 # ---------------------------------------------------------
 tab1, tab2, tab3 = st.tabs([
     "📍 대화형 Folium 해지도 연동 & 분석",
@@ -120,9 +120,9 @@ tab1, tab2, tab3 = st.tabs([
     "⚠️ 현장 설치 및 운영 주의사항"
 ])
 
-# ================= ================= =====================
+# =========================================================
 # TAB 1: 지도 연동 및 포집 시뮬레이션
-# ================= ================= =====================
+# =========================================================
 with tab1:
     st.markdown('<div class="main-header">📍 해 지도 상호작용: 빨간점 클릭 또는 해역 클릭</div>', unsafe_allow_html=True)
     st.markdown('<div class="sub-header">지도의 <b>빨간점(주요 해류)</b>을 클릭하거나 해양 임의의 위치를 클릭하면 해당 해역의 유속 파라미터를 읽어와 최적 조건 분석 그래프 및 파티클 동적 추적 시뮬레이션을 실행합니다.</div>', unsafe_allow_html=True)
@@ -143,7 +143,6 @@ with tab1:
 
         map_data = st_folium(m, width="100%", height=460, key="ocean_folium_map")
 
-        # [버그 해결 핵심] 지도 클릭 시 세션 값 업데이트 및 st.rerun()
         if map_data:
             clicked_lat, clicked_lon = None, None
             if map_data.get("last_object_clicked"):
@@ -156,7 +155,6 @@ with tab1:
             if clicked_lat is not None and clicked_lon is not None:
                 loc_name, auto_u, auto_v = get_ocean_current_info(clicked_lat, clicked_lon)
                 
-                # 기존 입력값과 다를 때만 업데이트 후 리런하여 무한 루프 방지
                 if (abs(st.session_state["u_val"] - auto_u) > 1e-3 or 
                     abs(st.session_state["v_val"] - auto_v) > 1e-3 or 
                     st.session_state["selected_location"] != loc_name):
@@ -171,7 +169,6 @@ with tab1:
         st.success(f"📍 **선택된 위치**: {st.session_state['selected_location']}")
         st.info("💡 클릭하신 좌표의 추정 유속을 입력하거나 세부 설정하세요.")
 
-        # number_input에 key를 직접 연결하여 지도 클릭 시 자동 변경
         u_in = st.number_input("동서 방향 유속 u (m/s)", step=0.05, format="%.2f", key="u_val")
         v_in = st.number_input("남북 방향 유속 v (m/s)", step=0.05, format="%.2f", key="v_val")
 
@@ -188,12 +185,10 @@ with tab1:
             index=0
         )
 
-        # 실시간 유속 및 물리 연산
         net_speed = np.hypot(u_in, v_in)
         plastic_density = plastic_options[plastic_selected]
         angles, eff_curve, opt_angle, opt_eff = calculate_physics_efficiency(net_speed, plastic_density)
 
-        # 스크린샷과 동일한 메트릭 수치 카드
         st.markdown("<br>", unsafe_allow_html=True)
         m_col1, m_col2 = st.columns(2)
         with m_col1:
@@ -214,11 +209,15 @@ with tab1:
         st.markdown("<br>", unsafe_allow_html=True)
         run_sim = st.button("🚀 선택 해역 시뮬레이션 및 분석 실행", use_container_width=True, type="primary")
 
-    # --- 하단: 2D & 3D 그래프 및 입체 분석 ---
+    # --- 하단: 2D, 3D 그래프 및 입자 추적 동적 시뮬레이션 탭 ---
     st.markdown("---")
     st.subheader("📊 유속 및 차단막 각도별 포집 성능 시각화")
 
-    chart_tab1, chart_tab2 = st.tabs(["📈 2D 단면 최적화 곡선", "🌐 3D 유속-각도-포집효율 입체 곡면"])
+    chart_tab1, chart_tab2, chart_tab3 = st.tabs([
+        "📈 2D 단면 최적화 곡선", 
+        "🌐 3D 유속-각도-포집효율 입체 곡면",
+        "🎬 실시간 미세플라스틱 포집 동적 추적 (Particle Flow)"
+    ])
 
     with chart_tab1:
         fig_2d = go.Figure()
@@ -245,7 +244,6 @@ with tab1:
         st.plotly_chart(fig_2d, use_container_width=True)
 
     with chart_tab2:
-        # 3D Meshgrid 생성
         ang_grid = np.linspace(10, 90, 35)
         spd_grid = np.linspace(0.1, 2.5, 35)
         A, S = np.meshgrid(ang_grid, spd_grid)
@@ -278,10 +276,100 @@ with tab1:
         )
         st.plotly_chart(fig_3d, use_container_width=True)
 
+    with chart_tab3:
+        st.markdown("##### 🌊 선택한 V-각도 및 유속 조건에서의 입자 행동 시뮬레이션")
+        st.caption("▶️ Play 버튼을 누르면 미세플라스틱 입자가 해류를 따라 차단막으로 유입/포집/유실되는 과정을 관찰할 수 있습니다.")
 
-# ================= ================= =====================
+        # 1. 차단막 뱅크 구조 생성
+        half_rad = np.radians(opt_angle / 2.0)
+        boom_len = 10.0
+        rx, ry = boom_len * np.sin(half_rad), boom_len * np.cos(half_rad)
+        lx, ly = -rx, ry
+
+        # 차단막 좌표 (V자 형태)
+        boom_x = [lx, 0, rx]
+        boom_y = [ly, 0, ry]
+
+        # 2. 입자 데이터 생성 (30개 입자, 15 프레임)
+        n_particles = 30
+        n_frames = 15
+        np.random.seed(42)
+        init_x = np.linspace(-12, 12, n_particles) + np.random.uniform(-0.3, 0.3, n_particles)
+        init_y = np.full(n_particles, -10.0)
+
+        # 프레임별 데이터 세트
+        frames_data = []
+        t_steps = np.linspace(0, 1, n_frames)
+
+        for t in t_steps:
+            fx, fy, colors = [], [], []
+            for i in range(n_particles):
+                x0 = init_x[i]
+                y0 = init_y[i]
+                dist = net_speed * t * 14.0
+                
+                y_curr = y0 + dist
+                x_curr = x0
+
+                # V자 차단막 경계 체킹
+                barrier_y = np.abs(x0) / np.tan(half_rad) if np.sin(half_rad) > 0 else 0
+
+                if np.abs(x0) <= rx: # 차단막 포집 폭 내부
+                    if y_curr >= barrier_y:
+                        if opt_angle <= 45: # 슬라이딩 우수 (포집 성공)
+                            x_curr = x0 * max(0.0, 1.0 - t * 1.8)
+                            y_curr = min(barrier_y, y0 + dist * 0.4)
+                            colors.append("#10B981") # 초록색: 정상 포집 유도
+                        else: # 와류 유실 (포집 실패)
+                            x_curr = x0 + np.random.uniform(-0.8, 0.8)
+                            y_curr = barrier_y + 1.2
+                            colors.append("#EF4444") # 빨간색: 와류 유실
+                    else:
+                        colors.append("#3B82F6") # 파란색: 유입 중
+                else:
+                    colors.append("#9CA3AF") # 회색: 범위를 벗어남
+
+                fx.append(x_curr)
+                fy.append(y_curr)
+                
+            frames_data.append((fx, fy, colors))
+
+        # 3. Plotly Animation Figure 구성
+        fig_anim = go.Figure(
+            data=[
+                # V자 차단막
+                go.Scatter(x=boom_x, y=boom_y, mode="lines", name="V-차단막", line=dict(color="black", width=5)),
+                # 포집 수거 정점 (Apex)
+                go.Scatter(x=[0], y=[0], mode="markers", name="포집망 (Apex)", marker=dict(size=14, color="gold", symbol="star")),
+                # 초기 프레임 입자들
+                go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers", name="미세플라스틱",
+                           marker=dict(size=9, color=frames_data[0][2]))
+            ],
+            layout=go.Layout(
+                xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False),
+                yaxis=dict(range=[-12, 12], title="해류 진행 방향 (m)", zeroline=False),
+                height=480,
+                updatemenus=[dict(
+                    type="buttons",
+                    showactive=False,
+                    buttons=[dict(label="▶️ 포집 시뮬레이션 재생", method="animate",
+                                 args=[None, {"frame": {"duration": 120, "redraw": True}, "fromcurrent": True}])]
+                )]
+            ),
+            frames=[
+                go.Frame(data=[
+                    go.Scatter(x=boom_x, y=boom_y),
+                    go.Scatter(x=[0], y=[0]),
+                    go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=9, color=fd[2]))
+                ]) for fd in frames_data
+            ]
+        )
+
+        st.plotly_chart(fig_anim, use_container_width=True)
+
+# =========================================================
 # TAB 2: 맞춤형 설치 조건 도출기 (정부/기업용)
-# ================= ================= =====================
+# =========================================================
 with tab2:
     st.header("🎯 맞춤형 설치 조건 및 경제성/포집성 분석 도출기")
     st.write("설치 대상 해역의 수심, 예산 및 목표 포집량을 입력하여 최적의 펜스 구조와 설치 견적을 도출합니다.")
@@ -311,10 +399,9 @@ with tab2:
 
     st.success("✅ **추천 앵커 타입**: " + ("플루크 앵커 (Fluke Anchor)" if sea_bottom=="사질 (모래)" else "중력식 콘크리트 앙카"))
 
-
-# ================= ================= =====================
+# =========================================================
 # TAB 3: 현장 설치 및 운영 주의사항
-# ================= ================= =====================
+# =========================================================
 with tab3:
     st.header("⚠️ 현장 설치 및 해양 운영 안전 주의사항")
     
