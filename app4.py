@@ -100,7 +100,7 @@ def calculate_physics_efficiency(net_speed, plastic_density):
 # =========================================================
 # 3. 사이드바 (파라미터 및 해류 설정)
 # =========================================================
-with st.sidebar:
+    with st.sidebar:
     st.header("⚙️ 환경 및 환경 변수 설정")
     st.markdown("---")
     
