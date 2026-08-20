@@ -6,7 +6,7 @@ import folium
 from streamlit_folium import st_folium
 
 # ---------------------------------------------------------
-# 1. 페이지 기본 설정 및 CSS Style
+# 1. 페이지 기본 설정
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="해양 미세플라스틱 포집 시뮬레이터",
