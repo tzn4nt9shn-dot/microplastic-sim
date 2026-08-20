@@ -218,7 +218,11 @@ with tab1:
     st.markdown("---")
     st.subheader("📊 유속 및 차단막 각도별 포집 성능 시각화")
 
-    chart_tab1, chart_tab2 = st.tabs(["📈 2D 단면 최적화 곡선", "🌐 3D 유속-각도-포집효율 입체 곡면"])
+    chart_tab1, chart_tab2, chart_tab3 = st.tabs([
+    "📈 2D 단면 최적화 곡선", 
+    "🌐 3D 유속-각도-포집효율 입체 곡면",
+    "🎬 실시간 미세플라스틱 포집 동적 추적 (Particle Flow)"
+])
 
     with chart_tab1:
         fig_2d = go.Figure()
@@ -277,6 +281,97 @@ with tab1:
             margin=dict(l=10, r=10, b=10, t=10)
         )
         st.plotly_chart(fig_3d, use_container_width=True)
+    with chart_tab3:
+    st.markdown("##### 🌊 선택한 V-각도 및 유속 조건에서의 입자 행동 시뮬레이션")
+    st.caption("▶️ Play 버튼을 누르면 미세플라스틱 입자가 해류를 따라 차단막으로 유입/포집/유실되는 과정을 관찰할 수 있습니다.")
+
+    # 1. 차단막 뱅크 구조 생성
+    half_rad = np.radians(opt_angle / 2.0)
+    boom_len = 10.0
+    rx, ry = boom_len * np.sin(half_rad), boom_len * np.cos(half_rad)
+    lx, ly = -rx, ry
+
+    # 차단막 좌표 (V자 형태)
+    boom_x = [lx, 0, rx]
+    boom_y = [ly, 0, ry]
+
+    # 2. 입자 데이터 생성 (30개 입자, 15 프레임)
+    n_particles = 30
+    n_frames = 15
+    np.random.seed(42)
+    init_x = np.linspace(-12, 12, n_particles) + np.random.uniform(-0.3, 0.3, n_particles)
+    init_y = np.full(n_particles, -10.0)
+
+    # 프레임별 데이터 세트
+    frames_data = []
+    t_steps = np.linspace(0, 1, n_frames)
+
+    for t in t_steps:
+        fx, fy, colors = [], [], []
+        for i in range(n_particles):
+            x0 = init_x[i]
+            y0 = init_y[i]
+            dist = net_speed * t * 14.0
+            
+            y_curr = y0 + dist
+            x_curr = x0
+
+            # V자 차단막 경계 체킹
+            barrier_y = np.abs(x0) / np.tan(half_rad) if np.sin(half_rad) > 0 else 0
+
+            if np.abs(x0) <= rx: # 차단막 포집 폭 내부
+                if y_curr >= barrier_y:
+                    if opt_angle <= 45: # 슬라이딩 우수 (포집 성공)
+                        x_curr = x0 * max(0.0, 1.0 - t * 1.8)
+                        y_curr = min(barrier_y, y0 + dist * 0.4)
+                        colors.append("#10B981") # 초록색: 정상 포집 유도
+                    else: # 와류 유실 (포집 실패)
+                        x_curr = x0 + np.random.uniform(-0.8, 0.8)
+                        y_curr = barrier_y + 1.2
+                        colors.append("#EF4444") # 빨간색: 와류 유실
+                else:
+                    colors.append("#3B82F6") # 파란색: 유입 중
+            else:
+                colors.append("#9CA3AF") # 회색: 범위를 벗어남
+
+            fx.append(x_curr)
+            fy.append(y_curr)
+            
+        frames_data.append((fx, fy, colors))
+
+    # 3. Plotly Animation Figure 구성
+    fig_anim = go.Figure(
+        data=[
+            # V자 차단막
+            go.Scatter(x=boom_x, y=boom_y, mode="lines", name="V-차단막", line=dict(color="black", width=5)),
+            # 포집 수거 정점 (Apex)
+            go.Scatter(x=[0], y=[0], mode="markers", name="포집망 (Apex)", marker=dict(size=14, color="gold", symbol="star")),
+            # 초기 프레임 입자들
+            go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers", name="미세플라스틱",
+                       marker=dict(size=9, color=frames_data[0][2]))
+        ],
+        layout=go.Layout(
+            xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False),
+            yaxis=dict(range=[-12, 12], title="해류 진행 방향 (m)", zeroline=False),
+            height=480,
+            updatemenus=[dict(
+                type="buttons",
+                showactive=False,
+                buttons=[dict(label="▶️ 포집 시뮬레이션 재생", method="animate",
+                             args=[None, {"frame": {"duration": 120, "redraw": True}, "fromcurrent": True}])]
+            )]
+        ),
+        frames=[
+            go.Frame(data=[
+                go.Scatter(x=boom_x, y=boom_y),
+                go.Scatter(x=[0], y=[0]),
+                go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=9, color=fd[2]))
+            ]) for fd in frames_data
+        ]
+    )
+
+    st.plotly_chart(fig_anim, use_container_width=True)
+        
 
 
 # ================= ================= =====================
