@@ -5,9 +5,9 @@ import plotly.graph_objects as go
 import folium
 from streamlit_folium import st_folium
 
-# ================= ================= =====================
+# =========================================================
 # 1. 페이지 기본 설정 및 Custom CSS
-# ================= ================= =====================
+# =========================================================
 st.set_page_config(
     page_title="해양 미세플라스틱 V-차단막 포집 최적화 시뮬레이터",
     page_icon="🌊",
@@ -42,9 +42,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ================= ================= =====================
-# 2. Session State 상태 관리 (충돌 방지)
-# ================= ================= =====================
+# =========================================================
+# 2. Session State 상태 관리
+# =========================================================
 if "u_val" not in st.session_state:
     st.session_state["u_val"] = 1.70
 if "v_val" not in st.session_state:
@@ -97,15 +97,15 @@ def calculate_physics_efficiency(net_speed, plastic_density):
     best_idx = np.argmax(eff_list)
     return angles, np.array(eff_list), angles[best_idx], eff_list[best_idx]
 
-# ================= ================= =====================
+# =========================================================
 # 3. 사이드바 (파라미터 및 해류 설정)
-# ================= ================= =====================
+# =========================================================
 with st.sidebar:
     st.header("⚙️ 환경 및 환경 변수 설정")
     st.markdown("---")
     
     st.subheader("📍 선택된 해역 및 유속")
-    st.info(f"**현재 위치:**\n{st.session_state['selected_location']}")
+    st.info(f"**현재 위치:** {st.session_state['selected_location']}")
     
     col_u, col_v = st.columns(2)
     with col_u:
@@ -136,9 +136,9 @@ with st.sidebar:
     
     boom_length = st.slider("차단막 한쪽 날개 길이 L (m)", min_value=5.0, max_value=30.0, value=10.0, step=1.0)
 
-# ================= ================= =====================
+# =========================================================
 # 4. 메인 화면 레이아웃 (헤더 및 KPI 카드)
-# ================= ================= =====================
+# =========================================================
 st.markdown('<div class="main-header">🌊 해양 미세플라스틱 V-차단막 포집 최적화 시뮬레이터</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-header">해류 유속 및 차단막 각도별 포집 성능 동적 분석 시스템</div>', unsafe_allow_html=True)
 
@@ -195,9 +195,9 @@ with kpi_col:
     with k4:
         st.markdown(f'<div class="metric-card"><div class="metric-value" style="color:#D97706;">{eff_span:.1f} m</div><div class="metric-label">차단막 유효 포집폭</div></div>', unsafe_allow_html=True)
 
-# ================= ================= =====================
+# =========================================================
 # 5. 하단 시각화 탭 (2D / 3D / 동적 입자 추적 애니메이션)
-# ================= ================= =====================
+# =========================================================
 st.markdown("<div style='height:20px;'></div>", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs([
@@ -236,7 +236,7 @@ with tab2:
 
 # ----- TAB 3: 동적 입자(Particle) 포집 시뮬레이션 -----
 with tab3:
-    st.markdown("##### 🌊 선택된 각도 및 유속 조건에서의 입자 흐름 동적 시뮬레이션")
+    st.markdown("##### 🌊 선택한 V-각도 및 유속 조건에서의 입자 행동 시뮬레이션")
     st.caption("▶️ 아래 그래프 왼쪽 상단의 **[Play]** 버튼을 누르면 미세플라스틱 입자가 해류를 따라 이동하는 과정을 관찰할 수 있습니다.")
 
     half_rad = np.radians(opt_angle / 2.0)
