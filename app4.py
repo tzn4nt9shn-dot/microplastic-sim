@@ -2,12 +2,11 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 import folium
 from streamlit_folium import st_folium
 
 # ---------------------------------------------------------
-# 1. 페이지 기본 설정 및 고성능 UI CSS 스타일링
+# 1. 페이지 기본 설정 및 CSS Style
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="해양 미세플라스틱 포집 시뮬레이터",
@@ -16,7 +15,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 세련된 대시보드 CSS 디자인
 st.markdown("""
 <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -98,7 +96,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 2. Session State (상태 변수) 초기화
+# 2. Session State 초기화
 # ---------------------------------------------------------
 if "u_val" not in st.session_state:
     st.session_state["u_val"] = 1.70
@@ -108,7 +106,7 @@ if "selected_location" not in st.session_state:
     st.session_state["selected_location"] = "쿠로시오 해류 (Kuroshio)"
 
 # ---------------------------------------------------------
-# 3. 주요 해류 데이터베이스 및 추정 모델
+# 3. 데이터베이스 및 함수 정의
 # ---------------------------------------------------------
 MAJOR_CURRENTS = [
     {"name": "쿠로시오 해류 (Kuroshio)", "lat": 29.5, "lon": 131.0, "u": 1.70, "v": 0.55},
@@ -132,9 +130,6 @@ def get_ocean_current_info(lat, lon):
     loc_str = f"임의 선택 해역 (위도 {lat:.2f}°, 경도 {lon:.2f}°)"
     return loc_str, u_est, v_est
 
-# ---------------------------------------------------------
-# 4. 유체역학 포집 효율 계산 공식 (물리 모델)
-# ---------------------------------------------------------
 def calculate_physics_efficiency(net_speed, plastic_density):
     RHO_WATER = 1025.0
     buoyancy_factor = max(0.2, (RHO_WATER - plastic_density) / 125.0)
@@ -155,7 +150,7 @@ def calculate_physics_efficiency(net_speed, plastic_density):
     return angles, np.array(eff_list), angles[best_idx], eff_list[best_idx]
 
 # ---------------------------------------------------------
-# 5. 메인 대시보드 타이틀
+# 4. 상단 대시보드 타이틀
 # ---------------------------------------------------------
 st.markdown("""
 <div class="header-box">
@@ -165,7 +160,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# 6. 상단 탭 구성
+# 5. 탭 구성
 # ---------------------------------------------------------
 tab1, tab2, tab3 = st.tabs([
     "📍 대화형 Folium 해지도 연동 & 시뮬레이션",
@@ -173,13 +168,9 @@ tab1, tab2, tab3 = st.tabs([
     "⚠️ 현장 설치 및 운영 주의사항"
 ])
 
-# =========================================================
-# TAB 1: 지도 연동 및 포집 시뮬레이션
-# =========================================================
 with tab1:
     col_map, col_input = st.columns([1.2, 0.8], gap="medium")
 
-    # --- 왼쪽: Folium 지도 ---
     with col_map:
         st.markdown("##### 🗺️ 해역 선택 (마커 클릭 또는 위치 임의 지정)")
         m = folium.Map(location=[25, 125], zoom_start=2, tiles="OpenStreetMap")
@@ -217,12 +208,9 @@ with tab1:
                     
                     st.session_state["u_val"] = auto_u
                     st.session_state["v_val"] = auto_v
-                    st.session_state["input_u"] = auto_u
-                    st.session_state["input_v"] = auto_v
                     st.session_state["selected_location"] = loc_name
                     st.rerun()
 
-    # --- 오른쪽: 입력 제어 및 실시간 분석 카드 ---
     with col_input:
         st.markdown("##### ⚙️ 해역 파라미터 및 대상 플라스틱 설정")
         st.markdown(f'''
@@ -233,9 +221,9 @@ with tab1:
 
         i_col1, i_col2 = st.columns(2)
         with i_col1:
-            u_in = st.number_input("동서 유속 u (m/s)", value=float(st.session_state["u_val"]), step=0.05, format="%.2f", key="input_u")
+            u_in = st.number_input("동서 유속 u (m/s)", value=float(st.session_state["u_val"]), step=0.05, format="%.2f")
         with i_col2:
-            v_in = st.number_input("남북 유속 v (m/s)", value=float(st.session_state["v_val"]), step=0.05, format="%.2f", key="input_v")
+            v_in = st.number_input("남북 유속 v (m/s)", value=float(st.session_state["v_val"]), step=0.05, format="%.2f")
 
         st.session_state["u_val"] = u_in
         st.session_state["v_val"] = v_in
@@ -272,10 +260,6 @@ with tab1:
         </div>
         ''', unsafe_allow_html=True)
 
-        st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
-        st.button("🚀 해석 파라미터 갱신", use_container_width=True, type="primary")
-
-    # --- 하단 시각화 및 입자 추적 시뮬레이션 ---
     st.markdown("---")
     st.subheader("📊 유체역학 시각화 및 입자 동적 추적")
 
@@ -300,8 +284,8 @@ with tab1:
             textposition="top center"
         ))
         fig_2d.update_layout(
-            xaxis_title="V-차단막 각도 (°)",
-            yaxis_title="포집 효율 (%)",
+            xaxis=dict(title="V-차단막 각도 (°)"),
+            yaxis=dict(title="포집 효율 (%)"),
             height=380,
             margin=dict(l=20, r=20, t=30, b=20),
             hovermode="x unified",
@@ -331,9 +315,9 @@ with tab1:
         ))
         fig_3d.update_layout(
             scene=dict(
-                xaxis_title="V-각도 (°)",
-                yaxis_title="유속 (m/s)",
-                zaxis_title="포집 효율 (%)"
+                xaxis=dict(title="V-각도 (°)"),
+                yaxis=dict(title="유속 (m/s)"),
+                zaxis=dict(title="포집 효율 (%)")
             ),
             height=450,
             margin=dict(l=10, r=10, b=10, t=10)
@@ -344,7 +328,6 @@ with tab1:
         st.markdown("##### 🌊 해류 유입 방향(아래 → 위) 및 V-차단막 입자 행동 시뮬레이션")
         st.caption("▶️ Play 버튼을 클릭하면 아래에서 위(+Y방향)로 흘러드는 해류 속 미세플라스틱 입자가 V자 차단막으로 유입/슬라이딩/유실되는 움직임을 관찰할 수 있습니다.")
 
-        # 올바른 차단막 기하학 (해류 진행: 아래 -> 위)
         half_rad = np.radians(opt_angle / 2.0)
         boom_len = 10.0
         rx = boom_len * np.sin(half_rad)      
@@ -382,18 +365,18 @@ with tab1:
                             slide = max(0.0, 1.0 - (y_curr - barrier_y) * 0.2)
                             x_curr = x0 * slide
                             y_curr = min(apex_y, barrier_y + (apex_y - barrier_y) * (1.0 - slide))
-                            colors.append("#10B981") # 초록색: 포집 성공
+                            colors.append("#10B981")
                             sizes.append(9)
                         else:
                             x_curr = x0 + np.random.uniform(-0.6, 0.6)
                             y_curr = barrier_y + 1.2
-                            colors.append("#EF4444") # 빨간색: 유실
+                            colors.append("#EF4444")
                             sizes.append(7)
                     else:
-                        colors.append("#38BDF8") # 시안색: 유입 중
+                        colors.append("#38BDF8")
                         sizes.append(7)
                 else:
-                    colors.append("#64748B") # 회색: 범위 밖
+                    colors.append("#64748B")
                     sizes.append(5)
 
                 fx.append(x_curr)
@@ -401,7 +384,7 @@ with tab1:
                 
             frames_data.append((fx, fy, colors, sizes))
 
-        # 안전한 Plotly Trace 기반 애니메이션 구현
+        # 수정된 Plotly Layout 구문 (tickfont, title_font 사용)
         fig_anim = go.Figure(
             data=[
                 go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers",
@@ -415,8 +398,8 @@ with tab1:
             layout=go.Layout(
                 paper_bgcolor="#0F172A",
                 plot_bgcolor="#020617",
-                xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
-                yaxis=dict(range=[-13, 13], title="해류 진행 방향 ↑ (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
+                xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False, gridcolor="#1E293B", tickfont=dict(color="#94A3B8"), title_font=dict(color="#94A3B8")),
+                yaxis=dict(range=[-13, 13], title="해류 진행 방향 ↑ (m)", zeroline=False, gridcolor="#1E293B", tickfont=dict(color="#94A3B8"), title_font=dict(color="#94A3B8")),
                 height=500,
                 margin=dict(l=30, r=30, t=30, b=30),
                 legend=dict(font=dict(color="#E2E8F0"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
@@ -440,9 +423,6 @@ with tab1:
 
         st.plotly_chart(fig_anim, use_container_width=True)
 
-# =========================================================
-# TAB 2: 맞춤형 설치 조건 도출기 (정부/기업용)
-# =========================================================
 with tab2:
     st.subheader("🎯 맞춤형 설치 조건 및 경제성/포집성 산출 도출기")
     st.write("설치 대상 해역의 예산 및 차단막 규격을 지정하여 최적의 설계 견적을 산출합니다.")
@@ -472,9 +452,6 @@ with tab2:
 
     st.success("✅ **추천 앵커 타입**: " + ("플루크 앵커 (Fluke Anchor)" if sea_bottom=="사질 (모래)" else "중력식 콘크리트 앙카"))
 
-# =========================================================
-# TAB 3: 현장 설치 및 운영 주의사항
-# =========================================================
 with tab3:
     st.subheader("⚠️ 현장 설치 및 해양 운영 안전 주의사항")
     
