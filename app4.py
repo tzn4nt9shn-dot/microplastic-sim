@@ -22,13 +22,11 @@ st.markdown("""
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
 
-    /* 메인 컨테이너 패딩 조정 */
     .block-container {
         padding-top: 1.8rem;
         padding-bottom: 2rem;
     }
 
-    /* 대시보드 헤더 커스텀 */
     .header-box {
         background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
         padding: 22px 28px;
@@ -52,7 +50,6 @@ st.markdown("""
         line-height: 1.5;
     }
 
-    /* 지표 통계 카드 스타일링 */
     .metric-container {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -87,7 +84,6 @@ st.markdown("""
         line-height: 1.2;
     }
 
-    /* 입력 폼 및 안내 박스 정돈 */
     .info-badge {
         background-color: #EFF6FF;
         border-left: 4px solid #2563EB;
@@ -189,7 +185,6 @@ with tab1:
         m = folium.Map(location=[25, 125], zoom_start=2, tiles="OpenStreetMap")
         for c in MAJOR_CURRENTS:
             spd = np.hypot(c['u'], c['v'])
-            # 팝업 가로폭 정돈 및 중복 텍스트 제거
             popup_html = f"""
             <div style="font-family:'Pretendard',sans-serif; width:180px; font-size:12.5px; line-height:1.5;">
                 <b style="font-size:13.5px; color:#0F172A;">{c['name']}</b><br>
@@ -203,7 +198,7 @@ with tab1:
                 icon=folium.Icon(color="red", icon="info-sign")
             ).add_to(m)
 
-        map_data = st_folium(m, width="100%", height=440, key="ocean_folium_map")
+        map_data = st_folium(m, height=440, use_container_width=True, key="ocean_folium_map")
 
         if map_data:
             clicked_lat, clicked_lon = None, None
@@ -236,9 +231,12 @@ with tab1:
 
         i_col1, i_col2 = st.columns(2)
         with i_col1:
-            u_in = st.number_input("동서 유속 u (m/s)", step=0.05, format="%.2f", key="u_val")
+            u_in = st.number_input("동서 유속 u (m/s)", value=float(st.session_state["u_val"]), step=0.05, format="%.2f")
         with i_col2:
-            v_in = st.number_input("남북 유속 v (m/s)", step=0.05, format="%.2f", key="v_val")
+            v_in = st.number_input("남북 유속 v (m/s)", value=float(st.session_state["v_val"]), step=0.05, format="%.2f")
+
+        st.session_state["u_val"] = u_in
+        st.session_state["v_val"] = v_in
 
         plastic_options = {
             "PP (폴리프로필렌 - 900 kg/m³)": 900.0,
@@ -254,10 +252,11 @@ with tab1:
         )
 
         net_speed = np.hypot(u_in, v_in)
+        st.session_state["net_speed"] = net_speed
+        
         plastic_density = plastic_options[plastic_selected]
         angles, eff_curve, opt_angle, opt_eff = calculate_physics_efficiency(net_speed, plastic_density)
 
-        # 결과 요약 카드 (Slim & Sleek)
         st.markdown(f'''
         <div class="metric-container">
             <div class="stat-card">
@@ -274,7 +273,7 @@ with tab1:
         st.markdown("<div style='margin-top:14px;'></div>", unsafe_allow_html=True)
         st.button("🚀 해석 파라미터 갱신", use_container_width=True, type="primary")
 
-    # --- 하단 시각화 및 particle simulation ---
+    # --- 하단 시각화 및 입자 추적 시뮬레이션 ---
     st.markdown("---")
     st.subheader("📊 유체역학 시각화 및 입자 동적 추적")
 
@@ -339,29 +338,23 @@ with tab1:
         )
         st.plotly_chart(fig_3d, use_container_width=True)
 
-    # ---------------------------------------------------------
-    # [탭 3] 실시간 포집 동적 추적 (정확한 방향성 수정 완료)
-    # ---------------------------------------------------------
     with chart_tab3:
         st.markdown("##### 🌊 해류 유입 방향(아래 → 위) 및 V-차단막 입자 행동 시뮬레이션")
         st.caption("▶️ Play 버튼을 클릭하면 아래에서 위(+Y방향)로 흘러드는 해류 속 미세플라스틱 입자가 V자 차단막으로 유입/슬라이딩/유실되는 움직임을 관찰할 수 있습니다.")
 
-        # 올바른 보트/차단막 기하학 설정 (해류 진행: -Y -> +Y)
-        # 입구(Mouth)는 아래쪽 y=0, 정점(Apex)은 위쪽 y=apex_y에 위치하여 역V자 깔때기 구조 형성
+        # 올바른 차단막 기하학 (해류 진행: 아래 -> 위)
         half_rad = np.radians(opt_angle / 2.0)
         boom_len = 10.0
-        rx = boom_len * np.sin(half_rad)      # 하단 입구 반통과폭
-        apex_y = boom_len * np.cos(half_rad)  # 포집 정점 높이 (+Y 방향)
+        rx = boom_len * np.sin(half_rad)      
+        apex_y = boom_len * np.cos(half_rad)  
 
-        # 차단막 선분 (입구 왼쪽 -> 정점 -> 입구 오른쪽)
         boom_x = [-rx, 0, rx]
         boom_y = [0, apex_y, 0]
 
-        n_particles = 45
+        n_particles = 40
         n_frames = 20
         np.random.seed(42)
         
-        # 입자 초기 위치 (차단막 하단 $y = -12$ 부근에서 생성)
         init_x = np.linspace(-12, 12, n_particles) + np.random.uniform(-0.2, 0.2, n_particles)
         init_y = np.full(n_particles, -12.0)
 
@@ -375,23 +368,21 @@ with tab1:
                 x0 = init_x[i]
                 y0 = init_y[i]
                 
-                # 유속에 따른 이동 거리
                 dist = net_speed * t * 18.0
                 y_curr = y0 + dist
                 x_curr = x0
 
-                # 차단막 가이드라인 ($y$ 경계 함수)
                 if abs(x0) <= rx and rx > 0:
                     barrier_y = apex_y * (1.0 - abs(x0) / rx)
                     
                     if y_curr >= barrier_y:
-                        if opt_angle <= 48: # 최적 각도: 차단막 면을 따라 정점(Apex)으로 슬라이딩
+                        if opt_angle <= 48:
                             slide = max(0.0, 1.0 - (y_curr - barrier_y) * 0.2)
                             x_curr = x0 * slide
                             y_curr = min(apex_y, barrier_y + (apex_y - barrier_y) * (1.0 - slide))
                             colors.append("#10B981") # 초록색: 포집 성공
                             sizes.append(9)
-                        else: # 각도 과다: 와류 및 와류에 의한 차단막 상단 넘침 유실
+                        else:
                             x_curr = x0 + np.random.uniform(-0.6, 0.6)
                             y_curr = barrier_y + 1.2
                             colors.append("#EF4444") # 빨간색: 유실
@@ -400,7 +391,7 @@ with tab1:
                         colors.append("#38BDF8") # 시안색: 유입 중
                         sizes.append(7)
                 else:
-                    colors.append("#64748B") # 회색: 포집 범위를 벗어난 유체 흐름
+                    colors.append("#64748B") # 회색: 범위 밖
                     sizes.append(5)
 
                 fx.append(x_curr)
@@ -408,34 +399,24 @@ with tab1:
                 
             frames_data.append((fx, fy, colors, sizes))
 
-        # 유선 점선 배경
-        bg_traces = []
-        for bg_x in np.linspace(-14, 14, 9):
-            bg_traces.append(go.Scatter(
-                x=[bg_x, bg_x], y=[-13, 13],
-                mode="lines",
-                line=dict(color="rgba(56, 189, 248, 0.12)", width=1.2, dash="dot"),
-                showlegend=False, hoverinfo="none"
-            ))
-
-        # Plotly 피규어 구성 (Plotly 버그 수정 및 다크 해양 테마)
+        # 안전한 Plotly Trace 기반 애니메이션 구현 (traces=[0] 갱신 방식)
         fig_anim = go.Figure(
-            data=bg_traces + [
+            data=[
+                go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers",
+                           marker=dict(size=frames_data[0][3], color=frames_data[0][2]), name="미세플라스틱 입자"),
                 go.Scatter(x=boom_x, y=boom_y, mode="lines+markers", name="V-차단막 (Boom)",
-                           line=dict(color="#F59E0B", width=5), marker=dict(size=7, color="#FBBF24")),
+                           line=dict(color="#F59E0B", width=5), marker=dict(size=6, color="#FBBF24")),
                 go.Scatter(x=[0], y=[apex_y], mode="markers+text", name="포집 정점 (Apex Net)",
-                           marker=dict(size=16, color="#10B981", symbol="star"),
-                           text=["🎯 Apex Net"], textposition="top center", textfont=dict(color="#10B981", size=12)),
-                go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers", name="미세플라스틱 입자",
-                           marker=dict(size=frames_data[0][3], color=frames_data[0][2]))
+                           marker=dict(size=15, color="#10B981", symbol="star"),
+                           text=["🎯 Apex Net"], textposition="top center", textfont=dict(color="#10B981", size=12))
             ],
             layout=go.Layout(
                 paper_bgcolor="#0F172A",
                 plot_bgcolor="#020617",
                 xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
                 yaxis=dict(range=[-13, 13], title="해류 진행 방향 ↑ (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
-                height=520,
-                margin=dict(l=30, r=30, t=40, b=30),
+                height=500,
+                margin=dict(l=30, r=30, t=30, b=30),
                 legend=dict(font=dict(color="#E2E8F0"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 updatemenus=[dict(
                     type="buttons",
@@ -444,15 +425,14 @@ with tab1:
                     font=dict(color="#F8FAFC"),
                     x=0.01, y=0.98,
                     buttons=[dict(label="▶️ 포집 시뮬레이션 재생", method="animate",
-                                 args=[None, {"frame": {"duration": 90, "redraw": True}, "fromcurrent": True}])]
+                                 args=[None, {"frame": {"duration": 90, "redraw": False}, "fromcurrent": True}])]
                 )]
             ),
             frames=[
-                go.Frame(data=bg_traces + [
-                    go.Scatter(x=boom_x, y=boom_y),
-                    go.Scatter(x=[0], y=[apex_y]),
-                    go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=fd[3], color=fd[2]))
-                ]) for fd in frames_data
+                go.Frame(
+                    data=[go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=fd[3], color=fd[2]))],
+                    traces=[0]
+                ) for fd in frames_data
             ]
         )
 
@@ -476,9 +456,9 @@ with tab2:
         sea_bottom = st.selectbox("해저 지질 형태", ["사질 (모래)", "펄 (점토)", "암반 (바위)"])
         maintenance_freq = st.radio("유지보수 / 쓰레기 수거 주기", ["주 1회", "격주 1회", "월 1회"], horizontal=True)
 
-    # 엔지니어링 계산
+    curr_net_speed = st.session_state.get("net_speed", 1.78)
     estimated_cost = boom_length * 0.42 + (deployment_months * 1.5)
-    monthly_retrieval_ton = (boom_length * 0.18) * (net_speed * 1.2)
+    monthly_retrieval_ton = (boom_length * 0.18) * (curr_net_speed * 1.2)
     
     st.markdown("---")
     st.markdown("##### 📋 엔지니어링 설계를 위한 산출 요약")
@@ -486,7 +466,7 @@ with tab2:
     r_col1, r_col2, r_col3 = st.columns(3)
     r_col1.metric("예상 총 투입 비용", f"{estimated_cost:.1f} 백만원")
     r_col2.metric("월간 예상 미세플라스틱 포집량", f"{monthly_retrieval_ton:.1f} 톤/월")
-    r_col3.metric("앵커링 소요 인장 하중", f"{boom_length * net_speed * 0.85:.1f} kN")
+    r_col3.metric("앵커링 소요 인장 하중", f"{boom_length * curr_net_speed * 0.85:.1f} kN")
 
     st.success("✅ **추천 앵커 타입**: " + ("플루크 앵커 (Fluke Anchor)" if sea_bottom=="사질 (모래)" else "중력식 콘크리트 앙카"))
 
