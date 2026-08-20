@@ -276,116 +276,119 @@ with tab1:
         )
         st.plotly_chart(fig_3d, use_container_width=True)
 
+    # ---------------------------------------------------------
+    # [탭 3] 실시간 미세플라스틱 포집 동적 추적 (개선 버전)
+    # ---------------------------------------------------------
     with chart_tab3:
-    st.markdown("##### 🌊 선택한 V-각도 및 유속 조건에서의 입자 행동 시뮬레이션")
-    
-    # 1. 포집 기하학 계산 (해류: 아래 -Y → 위 +Y 진행)
-    # 입구(Mouth)가 아래(-Y), 정점(Apex)이 위(+Y)에 위치하는 역V자 깔때기 구조
-    half_rad = np.radians(opt_angle / 2.0)
-    boom_len = 9.0
-    rx = boom_len * np.sin(half_rad)        # 차단막 하단 반통과폭
-    apex_y = boom_len * np.cos(half_rad)    # 정점 높이 (+Y)
-
-    boom_x = [-rx, 0, rx]
-    boom_y = [0, apex_y, 0]
-
-    # 2. 입자 데이터 및 물리학 시뮬레이션 생성
-    n_particles = 40
-    n_frames = 20
-    np.random.seed(42)
-    init_x = np.linspace(-11, 11, n_particles) + np.random.uniform(-0.3, 0.3, n_particles)
-    init_y = np.full(n_particles, -12.0)
-
-    frames_data = []
-    t_steps = np.linspace(0, 1, n_frames)
-
-    for t in t_steps:
-        fx, fy, colors, sizes = [], [], [], []
+        st.markdown("##### 🌊 선택한 V-각도 및 유속 조건에서의 입자 행동 시뮬레이션")
         
-        for i in range(n_particles):
-            x0, y0 = init_x[i], init_y[i]
-            dist = net_speed * t * 18.0
-            y_curr = y0 + dist
-            x_curr = x0
+        # 1. 포집 기하학 계산 (해류: 아래 -Y → 위 +Y 진행)
+        # 입구(Mouth)가 아래(-Y), 정점(Apex)이 위(+Y)에 위치하는 역V자 깔때기 구조
+        half_rad = np.radians(opt_angle / 2.0)
+        boom_len = 9.0
+        rx = boom_len * np.sin(half_rad)        # 차단막 하단 반통과폭
+        apex_y = boom_len * np.cos(half_rad)    # 정점 높이 (+Y)
 
-            # V자 차단막 내부 유입 판정
-            if abs(x0) <= rx:
-                # 입구(y=0)에서 정점(y=apex_y)까지의 경계선
-                barrier_y = (rx - abs(x0)) * (apex_y / rx) if rx > 0 else apex_y
-                
-                if y_curr >= barrier_y:
-                    if opt_angle <= 48: # 최적 각도: 정점으로 슬라이딩 포집
-                        slide = max(0.0, 1.0 - (y_curr - barrier_y) * 0.2)
-                        x_curr = x0 * slide
-                        y_curr = min(apex_y, barrier_y + (apex_y - barrier_y) * (1.0 - slide))
-                        colors.append("#10B981") # 네온 그린 (포집 성공)
-                        sizes.append(10)
-                    else: # 각도 과다: 와류로 인한 유실
-                        x_curr = x0 + np.random.uniform(-0.8, 0.8)
-                        y_curr = barrier_y + 1.5
-                        colors.append("#EF4444") # 네온 레드 (와류 유실)
-                        sizes.append(8)
-                else:
-                    colors.append("#38BDF8") # 시안 블루 (유입 중)
-                    sizes.append(7)
-            else:
-                colors.append("#64748B") # 슬레이트 그레이 (포집 범위 밖)
-                sizes.append(6)
+        boom_x = [-rx, 0, rx]
+        boom_y = [0, apex_y, 0]
 
-            fx.append(x_curr)
-            fy.append(y_curr)
+        # 2. 입자 데이터 및 물리학 시뮬레이션 생성
+        n_particles = 40
+        n_frames = 20
+        np.random.seed(42)
+        init_x = np.linspace(-11, 11, n_particles) + np.random.uniform(-0.3, 0.3, n_particles)
+        init_y = np.full(n_particles, -12.0)
+
+        frames_data = []
+        t_steps = np.linspace(0, 1, n_frames)
+
+        for t in t_steps:
+            fx, fy, colors, sizes = [], [], [], []
             
-        frames_data.append((fx, fy, colors, sizes))
+            for i in range(n_particles):
+                x0, y0 = init_x[i], init_y[i]
+                dist = net_speed * t * 18.0
+                y_curr = y0 + dist
+                x_curr = x0
 
-    # 3. 해류 점선 배경 (해양 유선 연출)
-    bg_traces = []
-    for bg_x in np.linspace(-14, 14, 9):
-        bg_traces.append(go.Scatter(
-            x=[bg_x, bg_x], y=[-13, 13],
-            mode="lines",
-            line=dict(color="rgba(56, 189, 248, 0.12)", width=1.5, dash="dot"),
-            showlegend=False, hoverinfo="none"
-        ))
+                # V자 차단막 내부 유입 판정
+                if abs(x0) <= rx:
+                    # 입구(y=0)에서 정점(y=apex_y)까지의 경계선
+                    barrier_y = (rx - abs(x0)) * (apex_y / rx) if rx > 0 else apex_y
+                    
+                    if y_curr >= barrier_y:
+                        if opt_angle <= 48: # 최적 각도: 정점으로 슬라이딩 포집
+                            slide = max(0.0, 1.0 - (y_curr - barrier_y) * 0.2)
+                            x_curr = x0 * slide
+                            y_curr = min(apex_y, barrier_y + (apex_y - barrier_y) * (1.0 - slide))
+                            colors.append("#10B981") # 네온 그린 (포집 성공)
+                            sizes.append(10)
+                        else: # 각도 과다: 와류로 인한 유실
+                            x_curr = x0 + np.random.uniform(-0.8, 0.8)
+                            y_curr = barrier_y + 1.5
+                            colors.append("#EF4444") # 네온 레드 (와류 유실)
+                            sizes.append(8)
+                    else:
+                        colors.append("#38BDF8") # 시안 블루 (유입 중)
+                        sizes.append(7)
+                else:
+                    colors.append("#64748B") # 슬레이트 그레이 (포집 범위 밖)
+                    sizes.append(6)
 
-    # 4. Plotly 다크 해양 대시보드 피규어 생성
-    fig_anim = go.Figure(
-        data=bg_traces + [
-            # V자 차단막 (골드 네온 바)
-            go.Scatter(x=boom_x, y=boom_y, mode="lines+markers", name="V-차단막 (Boom)",
-                       line=dict(color="#F59E0B", width=6), marker=dict(size=8, color="#FBBF24")),
-            # 정점 포집망 (Apex Star)
-            go.Scatter(x=[0], y=[apex_y], mode="markers+text", name="포집 정점 (Apex)",
-                       marker=dict(size=18, color="#10B981", symbol="star"),
-                       text=["🎯 Apex Net"], textposition="top center", textfont=dict(color="#10B981", size=12)),
-            # 미세플라스틱 입자 (초기 프레임)
-            go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers", name="미세플라스틱 입자",
-                       marker=dict(size=frames_data[0][3], color=frames_data[0][2]))
-        ],
-        layout=go.Layout(
-            paper_bgcolor="#0F172A",
-            plot_bgcolor="#020617",
-            xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
-            yaxis=dict(range=[-13, 13], title="해류 진행 방향 ↑ (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
-            height=530,
-            margin=dict(l=40, r=40, t=50, b=40),
-            legend=dict(font=dict(color="#E2E8F0"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-            updatemenus=[dict(
-                type="buttons", showactive=False, buttoncolor="#1E293B", font=dict(color="#F8FAFC"),
-                x=0.01, y=0.98,
-                buttons=[dict(label="▶️ 포집 시뮬레이션 재생", method="animate",
-                             args=[None, {"frame": {"duration": 90, "redraw": True}, "fromcurrent": True}])]
-            )]
-        ),
-        frames=[
-            go.Frame(data=bg_traces + [
-                go.Scatter(x=boom_x, y=boom_y),
-                go.Scatter(x=[0], y=[apex_y]),
-                go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=fd[3], color=fd[2]))
-            ]) for fd in frames_data
-        ]
-    )
+                fx.append(x_curr)
+                fy.append(y_curr)
+                
+            frames_data.append((fx, fy, colors, sizes))
 
-    st.plotly_chart(fig_anim, use_container_width=True)
+        # 3. 해류 점선 배경 (해양 유선 연출)
+        bg_traces = []
+        for bg_x in np.linspace(-14, 14, 9):
+            bg_traces.append(go.Scatter(
+                x=[bg_x, bg_x], y=[-13, 13],
+                mode="lines",
+                line=dict(color="rgba(56, 189, 248, 0.12)", width=1.5, dash="dot"),
+                showlegend=False, hoverinfo="none"
+            ))
+
+        # 4. Plotly 다크 해양 대시보드 피규어 생성
+        fig_anim = go.Figure(
+            data=bg_traces + [
+                # V자 차단막 (골드 네온 바)
+                go.Scatter(x=boom_x, y=boom_y, mode="lines+markers", name="V-차단막 (Boom)",
+                           line=dict(color="#F59E0B", width=6), marker=dict(size=8, color="#FBBF24")),
+                # 정점 포집망 (Apex Star)
+                go.Scatter(x=[0], y=[apex_y], mode="markers+text", name="포집 정점 (Apex)",
+                           marker=dict(size=18, color="#10B981", symbol="star"),
+                           text=["🎯 Apex Net"], textposition="top center", textfont=dict(color="#10B981", size=12)),
+                # 미세플라스틱 입자 (초기 프레임)
+                go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers", name="미세플라스틱 입자",
+                           marker=dict(size=frames_data[0][3], color=frames_data[0][2]))
+            ],
+            layout=go.Layout(
+                paper_bgcolor="#0F172A",
+                plot_bgcolor="#020617",
+                xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
+                yaxis=dict(range=[-13, 13], title="해류 진행 방향 ↑ (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
+                height=530,
+                margin=dict(l=40, r=40, t=50, b=40),
+                legend=dict(font=dict(color="#E2E8F0"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                updatemenus=[dict(
+                    type="buttons", showactive=False, buttoncolor="#1E293B", font=dict(color="#F8FAFC"),
+                    x=0.01, y=0.98,
+                    buttons=[dict(label="▶️ 포집 시뮬레이션 재생", method="animate",
+                                 args=[None, {"frame": {"duration": 90, "redraw": True}, "fromcurrent": True}])]
+                )]
+            ),
+            frames=[
+                go.Frame(data=bg_traces + [
+                    go.Scatter(x=boom_x, y=boom_y),
+                    go.Scatter(x=[0], y=[apex_y]),
+                    go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=fd[3], color=fd[2]))
+                ]) for fd in frames_data
+            ]
+        )
+
+        st.plotly_chart(fig_anim, use_container_width=True)
 
 # =========================================================
 # TAB 2: 맞춤형 설치 조건 도출기 (정부/기업용)
