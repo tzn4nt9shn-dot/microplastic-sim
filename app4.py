@@ -43,7 +43,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================= ================= =====================
-# 2. Session State 상태 관리
+# 2. Session State 상태 관리 (충돌 방지)
 # ================= ================= =====================
 if "u_val" not in st.session_state:
     st.session_state["u_val"] = 1.70
@@ -66,7 +66,8 @@ MAJOR_CURRENTS = [
 ]
 
 def get_ocean_current_info(lat, lon):
-    if lon > 180: lon -= 360
+    if lon > 180:
+        lon -= 360
     for c in MAJOR_CURRENTS:
         if np.hypot(lat - c["lat"], lon - c["lon"]) < 7.0:
             return c["name"], c["u"], c["v"]
@@ -205,6 +206,7 @@ tab1, tab2, tab3 = st.tabs([
     "🎬 실시간 미세플라스틱 포집 동적 추적 (Particle Flow)"
 ])
 
+# ----- TAB 1: 2D 최적화 곡선 -----
 with tab1:
     fig2d = go.Figure()
     fig2d.add_trace(go.Scatter(x=angles, y=efficiencies, mode="lines", name="포집 효율 (%)", line=dict(color="#0284C7", width=3)))
@@ -212,6 +214,7 @@ with tab1:
     fig2d.update_layout(title=f"V-차단막 각도에 따른 포집 효율 (합성 유속: {net_speed:.2f} m/s)", xaxis_title="V-차단막 포함각도 θ (도)", yaxis_title="예상 포집 효율 (%)", height=420, template="plotly_white")
     st.plotly_chart(fig2d, use_container_width=True)
 
+# ----- TAB 2: 3D 입체 곡면 -----
 with tab2:
     speeds_3d = np.linspace(0.1, 3.0, 30)
     angles_3d = np.linspace(10, 90, 30)
@@ -231,6 +234,7 @@ with tab2:
     fig3d.update_layout(title="유속(Speed) - 각도(Angle) - 포집효율(Efficiency) 3D 응답 곡면", scene=dict(xaxis_title="유속 (m/s)", yaxis_title="차단막 각도 (°)", zaxis_title="포집 효율 (%)"), height=500)
     st.plotly_chart(fig3d, use_container_width=True)
 
+# ----- TAB 3: 동적 입자(Particle) 포집 시뮬레이션 -----
 with tab3:
     st.markdown("##### 🌊 선택된 각도 및 유속 조건에서의 입자 흐름 동적 시뮬레이션")
     st.caption("▶️ 아래 그래프 왼쪽 상단의 **[Play]** 버튼을 누르면 미세플라스틱 입자가 해류를 따라 이동하는 과정을 관찰할 수 있습니다.")
