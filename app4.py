@@ -15,38 +15,36 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS 스타일링 (가독성 개선 및 슬림한 카드 디자인)
+# Custom CSS 스타일링
 st.markdown("""
 <style>
     .main-header {
-        font-size: 22px;
-        font-weight: 700;
-        color: #0F172A;
-        margin-bottom: 6px;
+        font-size: 24px;
+        font-weight: bold;
+        color: #1E293B;
+        margin-bottom: 8px;
     }
     .sub-header {
-        font-size: 13.5px;
-        color: #475569;
-        margin-bottom: 16px;
-        line-height: 1.5;
+        font-size: 14px;
+        color: #64748B;
+        margin-bottom: 20px;
     }
     .stat-card {
         background-color: #F8FAFC;
         border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 10px 14px;
+        border-radius: 10px;
+        padding: 15px;
         text-align: center;
     }
     .metric-value {
-        font-size: 26px;
-        font-weight: 700;
-        color: #1E293B;
-        line-height: 1.2;
+        font-size: 32px;
+        font-weight: bold;
+        color: #0F172A;
     }
     .metric-label {
-        font-size: 12px;
-        color: #64748B;
-        margin-bottom: 4px;
+        font-size: 13px;
+        color: #475569;
+        margin-bottom: 5px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -126,8 +124,8 @@ tab1, tab2, tab3 = st.tabs([
 # TAB 1: 지도 연동 및 포집 시뮬레이션
 # =========================================================
 with tab1:
-    st.markdown('<div class="main-header">📍 해지도 상호작용: 마커 클릭 또는 해역 선택</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">지도의 <b>마커</b>를 클릭하거나 임의의 위치를 클릭하면 유속 파라미터를 자동 수집하여 포집 효율 및 파티클 동적 추적 시뮬레이션을 실행합니다.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-header">📍 해 지도 상호작용: 빨간점 클릭 또는 해역 클릭</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-header">지도의 <b>빨간점(주요 해류)</b>을 클릭하거나 해양 임의의 위치를 클릭하면 해당 해역의 유속 파라미터를 읽어와 최적 조건 분석 그래프 및 파티클 동적 추적 시뮬레이션을 실행합니다.</div>', unsafe_allow_html=True)
 
     col_map, col_input = st.columns([1.15, 0.85])
 
@@ -136,17 +134,10 @@ with tab1:
         m = folium.Map(location=[25, 125], zoom_start=2, tiles="OpenStreetMap")
         for c in MAJOR_CURRENTS:
             spd = np.hypot(c['u'], c['v'])
-            # 팝업 가로 폭 확장 및 HTML 정리 (뚱뚱한 박스 및 중복 표기 수정)
-            popup_html = f"""
-            <div style="width:200px; font-size:13px; line-height:1.4; padding:2px;">
-                <b>{c['name']}</b><br>
-                <span style="color:#2563EB;">유속: {spd:.2f} m/s</span>
-            </div>
-            """
             folium.Marker(
                 [c["lat"], c["lon"]],
-                popup=folium.Popup(popup_html, max_width=250),
-                tooltip=c["name"], # 호버 시 명칭만 깔끔히 노출
+                popup=f"<b>{c['name']}</b><br>유속: {spd:.2f} m/s",
+                tooltip=f"{c['name']} (유속 {spd:.2f} m/s)",
                 icon=folium.Icon(color="red", icon="info-sign")
             ).add_to(m)
 
@@ -175,7 +166,8 @@ with tab1:
 
     # --- 오른쪽: 컨트롤 및 실시간 분석 카드 ---
     with col_input:
-        st.info(f"📍 **선택된 위치**: {st.session_state['selected_location']}")
+        st.success(f"📍 **선택된 위치**: {st.session_state['selected_location']}")
+        st.info("💡 클릭하신 좌표의 추정 유속을 입력하거나 세부 설정하세요.")
 
         u_in = st.number_input("동서 방향 유속 u (m/s)", step=0.05, format="%.2f", key="u_val")
         v_in = st.number_input("남북 방향 유속 v (m/s)", step=0.05, format="%.2f", key="v_val")
@@ -197,7 +189,7 @@ with tab1:
         plastic_density = plastic_options[plastic_selected]
         angles, eff_curve, opt_angle, opt_eff = calculate_physics_efficiency(net_speed, plastic_density)
 
-        st.markdown("<div style='margin-top:10px;'></div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         m_col1, m_col2 = st.columns(2)
         with m_col1:
             st.markdown(f'''
@@ -214,7 +206,7 @@ with tab1:
             </div>
             ''', unsafe_allow_html=True)
 
-        st.markdown("<div style='margin-top:12px;'></div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
         run_sim = st.button("🚀 선택 해역 시뮬레이션 및 분석 실행", use_container_width=True, type="primary")
 
     # --- 하단: 2D, 3D 그래프 및 입자 추적 동적 시뮬레이션 탭 ---
@@ -284,108 +276,91 @@ with tab1:
         )
         st.plotly_chart(fig_3d, use_container_width=True)
 
-    # ---------------------------------------------------------
-    # [탭 3] 실시간 미세플라스틱 포집 동적 추적 (오류 원인 해결)
-    # ---------------------------------------------------------
     with chart_tab3:
         st.markdown("##### 🌊 선택한 V-각도 및 유속 조건에서의 입자 행동 시뮬레이션")
-        
+        st.caption("▶️ Play 버튼을 누르면 미세플라스틱 입자가 해류를 따라 차단막으로 유입/포집/유실되는 과정을 관찰할 수 있습니다.")
+
+        # 1. 차단막 뱅크 구조 생성
         half_rad = np.radians(opt_angle / 2.0)
-        boom_len = 9.0
-        rx = boom_len * np.sin(half_rad)
-        apex_y = boom_len * np.cos(half_rad)
+        boom_len = 10.0
+        rx, ry = boom_len * np.sin(half_rad), boom_len * np.cos(half_rad)
+        lx, ly = -rx, ry
 
-        boom_x = [-rx, 0, rx]
-        boom_y = [0, apex_y, 0]
+        # 차단막 좌표 (V자 형태)
+        boom_x = [lx, 0, rx]
+        boom_y = [ly, 0, ry]
 
-        n_particles = 40
-        n_frames = 20
+        # 2. 입자 데이터 생성 (30개 입자, 15 프레임)
+        n_particles = 30
+        n_frames = 15
         np.random.seed(42)
-        init_x = np.linspace(-11, 11, n_particles) + np.random.uniform(-0.3, 0.3, n_particles)
-        init_y = np.full(n_particles, -12.0)
+        init_x = np.linspace(-12, 12, n_particles) + np.random.uniform(-0.3, 0.3, n_particles)
+        init_y = np.full(n_particles, -10.0)
 
+        # 프레임별 데이터 세트
         frames_data = []
         t_steps = np.linspace(0, 1, n_frames)
 
         for t in t_steps:
-            fx, fy, colors, sizes = [], [], [], []
-            
+            fx, fy, colors = [], [], []
             for i in range(n_particles):
-                x0, y0 = init_x[i], init_y[i]
-                dist = net_speed * t * 18.0
+                x0 = init_x[i]
+                y0 = init_y[i]
+                dist = net_speed * t * 14.0
+                
                 y_curr = y0 + dist
                 x_curr = x0
 
-                if abs(x0) <= rx:
-                    barrier_y = (rx - abs(x0)) * (apex_y / rx) if rx > 0 else apex_y
-                    
+                # V자 차단막 경계 체킹
+                barrier_y = np.abs(x0) / np.tan(half_rad) if np.sin(half_rad) > 0 else 0
+
+                if np.abs(x0) <= rx: # 차단막 포집 폭 내부
                     if y_curr >= barrier_y:
-                        if opt_angle <= 48:
-                            slide = max(0.0, 1.0 - (y_curr - barrier_y) * 0.2)
-                            x_curr = x0 * slide
-                            y_curr = min(apex_y, barrier_y + (apex_y - barrier_y) * (1.0 - slide))
-                            colors.append("#10B981") # 포집 성공
-                            sizes.append(10)
-                        else:
+                        if opt_angle <= 45: # 슬라이딩 우수 (포집 성공)
+                            x_curr = x0 * max(0.0, 1.0 - t * 1.8)
+                            y_curr = min(barrier_y, y0 + dist * 0.4)
+                            colors.append("#10B981") # 초록색: 정상 포집 유도
+                        else: # 와류 유실 (포집 실패)
                             x_curr = x0 + np.random.uniform(-0.8, 0.8)
-                            y_curr = barrier_y + 1.5
-                            colors.append("#EF4444") # 와류 유실
-                            sizes.append(8)
+                            y_curr = barrier_y + 1.2
+                            colors.append("#EF4444") # 빨간색: 와류 유실
                     else:
-                        colors.append("#38BDF8") # 유입 중
-                        sizes.append(7)
+                        colors.append("#3B82F6") # 파란색: 유입 중
                 else:
-                    colors.append("#64748B") # 범위 밖
-                    sizes.append(6)
+                    colors.append("#9CA3AF") # 회색: 범위를 벗어남
 
                 fx.append(x_curr)
                 fy.append(y_curr)
                 
-            frames_data.append((fx, fy, colors, sizes))
+            frames_data.append((fx, fy, colors))
 
-        bg_traces = []
-        for bg_x in np.linspace(-14, 14, 9):
-            bg_traces.append(go.Scatter(
-                x=[bg_x, bg_x], y=[-13, 13],
-                mode="lines",
-                line=dict(color="rgba(56, 189, 248, 0.12)", width=1.5, dash="dot"),
-                showlegend=False, hoverinfo="none"
-            ))
-
-        # ValueError 원인이었던 잘못된 buttoncolor 속성 제거 및 bgcolor 교체
+        # 3. Plotly Animation Figure 구성
         fig_anim = go.Figure(
-            data=bg_traces + [
-                go.Scatter(x=boom_x, y=boom_y, mode="lines+markers", name="V-차단막 (Boom)",
-                           line=dict(color="#F59E0B", width=6), marker=dict(size=8, color="#FBBF24")),
-                go.Scatter(x=[0], y=[apex_y], mode="markers+text", name="포집 정점 (Apex)",
-                           marker=dict(size=18, color="#10B981", symbol="star"),
-                           text=["🎯 Apex Net"], textposition="top center", textfont=dict(color="#10B981", size=12)),
-                go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers", name="미세플라스틱 입자",
-                           marker=dict(size=frames_data[0][3], color=frames_data[0][2]))
+            data=[
+                # V자 차단막
+                go.Scatter(x=boom_x, y=boom_y, mode="lines", name="V-차단막", line=dict(color="black", width=5)),
+                # 포집 수거 정점 (Apex)
+                go.Scatter(x=[0], y=[0], mode="markers", name="포집망 (Apex)", marker=dict(size=14, color="gold", symbol="star")),
+                # 초기 프레임 입자들
+                go.Scatter(x=frames_data[0][0], y=frames_data[0][1], mode="markers", name="미세플라스틱",
+                           marker=dict(size=9, color=frames_data[0][2]))
             ],
             layout=go.Layout(
-                paper_bgcolor="#0F172A",
-                plot_bgcolor="#020617",
-                xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
-                yaxis=dict(range=[-13, 13], title="해류 진행 방향 ↑ (m)", zeroline=False, gridcolor="#1E293B", font=dict(color="#94A3B8")),
-                height=530,
-                margin=dict(l=40, r=40, t=50, b=40),
-                legend=dict(font=dict(color="#E2E8F0"), orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                xaxis=dict(range=[-15, 15], title="수평 거리 (m)", zeroline=False),
+                yaxis=dict(range=[-12, 12], title="해류 진행 방향 (m)", zeroline=False),
+                height=480,
                 updatemenus=[dict(
                     type="buttons",
                     showactive=False,
-                    bgcolor="#1E293B",
-                    font=dict(color="#F8FAFC"),
-                    x=0.01, y=0.98,
                     buttons=[dict(label="▶️ 포집 시뮬레이션 재생", method="animate",
-                                 args=[None, {"frame": {"duration": 90, "redraw": True}, "fromcurrent": True}])]
+                                 args=[None, {"frame": {"duration": 120, "redraw": True}, "fromcurrent": True}])]
                 )]
             ),
             frames=[
-                go.Frame(data=bg_traces + [
+                go.Frame(data=[
                     go.Scatter(x=boom_x, y=boom_y),
-                    go.Scatter(x=[0], y=[apex_y]),
-                    go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=fd[3], color=fd[2]))
+                    go.Scatter(x=[0], y=[0]),
+                    go.Scatter(x=fd[0], y=fd[1], mode="markers", marker=dict(size=9, color=fd[2]))
                 ]) for fd in frames_data
             ]
         )
@@ -402,7 +377,7 @@ with tab2:
     t2_col1, t2_col2 = st.columns(2)
     with t2_col1:
         target_budget = st.slider("사업 수용 가능 예산 (백만원)", 10, 500, 120, 10)
-        boom_length = st.slider("차단막(Boom) 총 설치 길이 (m)", 50, 1000, 200, 25)
+        boom_length = st.slider("차단막(Boom) 총 설치 설치 길이 (m)", 50, 1000, 200, 25)
         deployment_months = st.number_input("운영 기간 (개월)", min_value=1, max_value=60, value=12)
 
     with t2_col2:
@@ -435,7 +410,7 @@ with tab3:
     with st.expander("1. 🐋 해양 생물 혼획(Bycatch) 방지 조치", expanded=True):
         st.write("""
         - 차단막 하부 스커트(Skirt) 망목(Mesh) 크기를 최소 2mm 이하로 유지하여 치어 얽힘 방지.
-        - 음향 퇴치 장치(Pinger)를 50m 간격으로 부착하여 어류 및 해양 포유류의 접근 예방.
+        - 음향 음향 퇴치 장치(Pinger)를 50m 간격으로 부착하여 어류 및 해양 포유류의 접근 예방.
         """)
         
     with st.expander("2. 🌀 태풍 및 기상 악화 시 안전 비상 프로토콜"):
@@ -446,7 +421,7 @@ with tab3:
         
     with st.expander("3. 🦠 생물 부착(Biofouling) 관리 및 주기적 세척"):
         st.write("""
-        - 수온 20°C 이상 환경에서는 2주 내 차단막 표면 따개비 부착으로 중량 35% 증가.
+        - 수온 20°C 이상 환경에서는 2주 내 차단막 표면 바이라바/따개비 부착으로 중량 35% 증가.
         - 무독성 친환경 방오 코팅(Silicone-based anti-fouling) 필름 적용 권장.
         """)
         
